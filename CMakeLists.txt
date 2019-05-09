@@ -1,14 +1,24 @@
 cmake_minimum_required(VERSION 2.6)
+
+include(cmake/HunterGate.cmake)
+HunterGate(
+    URL "https://github.com/ruslo/hunter/archive/v0.23.165.tar.gz"
+	SHA1 "5a73f91df5f6109c0bb1104d0c0ee423f7bece79"
+)
+
+set(languages C)
 if(TEST_CPP)
-    project("mbed TLS" C CXX)
-else()
-    project("mbed TLS" C)
+    set(languages C CXX)
 endif()
+project(mbedtls LANGUAGES ${languages} VERSION 2.16.1)
+
+hunter_add_package(ZLIB)
+find_package(ZLIB QUIET)
 
 option(USE_PKCS11_HELPER_LIBRARY "Build mbed TLS with the pkcs11-helper library." OFF)
-option(ENABLE_ZLIB_SUPPORT "Build mbed TLS with zlib library." OFF)
+option(ENABLE_ZLIB_SUPPORT "Build mbed TLS with zlib library." ${ZLIB_FOUND})
 
-option(ENABLE_PROGRAMS "Build mbed TLS programs." ON)
+option(ENABLE_PROGRAMS "Build mbed TLS programs." OFF)
 
 option(UNSAFE_BUILD "Allow unsafe builds. These builds ARE NOT SECURE." OFF)
 
@@ -21,7 +31,7 @@ string(REGEX MATCH "MSVC" CMAKE_COMPILER_IS_MSVC "${CMAKE_C_COMPILER_ID}")
 if(CMAKE_COMPILER_IS_MSVC)
     option(ENABLE_TESTING "Build mbed TLS tests." OFF)
 else()
-    option(ENABLE_TESTING "Build mbed TLS tests." ON)
+    option(ENABLE_TESTING "Build mbed TLS tests." OFF)
 endif()
 
 # Warning string - created as a list for compatibility with CMake 2.8
@@ -232,3 +242,47 @@ if (NOT ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/DartConfiguration.tcl
                    ${CMAKE_CURRENT_BINARY_DIR}/DartConfiguration.tcl COPYONLY)
 endif()
+
+
+include(GNUInstallDirs)
+
+set(ExportName "mbedtls")
+set(config_install_dir "lib/cmake/${ExportName}")
+set(include_install_dir "include")
+
+set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
+set(version_config "${generated_dir}/${ExportName}ConfigVersion.cmake")
+set(project_config "${generated_dir}/${ExportName}Config.cmake")
+set(targets_export_name "${ExportName}Targets")
+set(namespace "${ExportName}::")
+
+include(CMakePackageConfigHelpers)
+
+# Note: PROJECT_VERSION is used as a VERSION
+write_basic_package_version_file(
+    "${version_config}" COMPATIBILITY SameMajorVersion
+)
+
+# Note: variable 'targets_export_name' used
+configure_file("cmake/Config.cmake.in" "${project_config}" @ONLY)
+
+install(
+    TARGETS mbedcrypto mbedx509 mbedtls
+    EXPORT "${targets_export_name}"
+    LIBRARY DESTINATION "lib"
+    ARCHIVE DESTINATION "lib"
+    RUNTIME DESTINATION "bin"
+    INCLUDES DESTINATION "${include_install_dir}"
+)
+
+install(
+    FILES "${project_config}" "${version_config}"
+    DESTINATION "${config_install_dir}"
+)
+
+install(
+    EXPORT "${targets_export_name}"
+    NAMESPACE "${namespace}"
+    DESTINATION "${config_install_dir}"
+)
